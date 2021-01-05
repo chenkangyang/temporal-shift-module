@@ -5,6 +5,7 @@
 
 import os
 import threading
+import time
 
 NUM_THREADS = 100
 VIDEO_ROOT = '/ssd/video/something/v2/20bn-something-something-v2'         # Downloaded webm videos
@@ -20,8 +21,9 @@ def split(l, n):
 def extract(video, tmpl='%06d.jpg'):
     # os.system(f'ffmpeg -i {VIDEO_ROOT}/{video} -vf -threads 1 -vf scale=-1:256 -q:v 0 '
     #           f'{FRAME_ROOT}/{video[:-5]}/{tmpl}')
-    cmd = 'ffmpeg -i \"{}/{}\" -threads 1 -vf scale=-1:256 -q:v 0 \"{}/{}/%06d.jpg\"'.format(VIDEO_ROOT, video,
-                                                                                             FRAME_ROOT, video[:-5])
+    date = time.strftime("%Y-%m-%d", time.localtime())
+    cmd = 'ffmpeg -i \"{}/{}\" -threads 1 -vf scale=-1:256 -q:v 0 \"{}/{}/%06d.jpg >2 {}_ff.log\"'.format(VIDEO_ROOT, video,
+                                                                                                FRAME_ROOT, video[:-5], date)
     os.system(cmd)
 
 
