@@ -8,8 +8,12 @@ import threading
 import time
 
 NUM_THREADS = 100
-VIDEO_ROOT = '/ssd/video/something/v2/20bn-something-something-v2'         # Downloaded webm videos
-FRAME_ROOT = '/ssd/video/something/v2/20bn-something-something-v2-frames'  # Directory for extracted frames
+
+# ln -s /mnt/data/kychen/datasets/tsm_data data
+PROJECT_ROOT = '/mnt/data/kychen/workspace/temporal-shift-module'
+VIDEO_ROOT = os.path.join(PROJECT_ROOT, 'data/something/v2/20bn-something-something-v2')         # Downloaded webm videos
+FRAME_ROOT = os.path.join(PROJECT_ROOT, 'data/something/v2/20bn-something-something-v2-frames')  # Directory for extracted frames
+
 
 
 def split(l, n):

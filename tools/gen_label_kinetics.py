@@ -8,8 +8,8 @@
 import os
 
 
-dataset_path = '/ssd/video/kinetics/images256/'
-label_path = '/ssd/video/kinetics/labels'
+dataset_path = '../data/kinetics/images/'
+label_path = '../data/kinetics/labels'
 
 if __name__ == '__main__':
     with open('kinetics_label_map.txt') as f:
@@ -49,6 +49,8 @@ if __name__ == '__main__':
             curIDX = idx_categories[i]
             # counting the number of frames in each video folders
             img_dir = os.path.join(dataset_path, categories_list[i], curFolder)
+            import pdb; pdb.set_trace()
+
             if not os.path.exists(img_dir):
                 missing_folders.append(img_dir)
                 # print(missing_folders)
