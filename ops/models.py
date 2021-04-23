@@ -9,15 +9,15 @@ from ops.basic_ops import ConsensusModule
 from ops.transforms import *
 from torch.nn.init import normal_, constant_
 
-
 class TSN(nn.Module):
     def __init__(self, num_class, num_segments, modality,
                  base_model='resnet101', new_length=None,
                  consensus_type='avg', before_softmax=True,
                  dropout=0.8, img_feature_dim=256,
                  crop_num=1, partial_bn=True, print_spec=True, pretrain='imagenet',
-                 is_shift=False, shift_div=8, shift_place='blockres', fc_lr5=False,
-                 temporal_pool=False, non_local=False):
+                 is_shift=False, shift_div=8, shift_place='blockres', is_softshift=False, shift_init_mode="shift",
+                 fc_lr5=False,
+                 temporal_pool=False, non_local=False, deploy=False):
         super(TSN, self).__init__()
         self.modality = modality
         self.num_segments = num_segments
@@ -32,10 +32,14 @@ class TSN(nn.Module):
         self.is_shift = is_shift
         self.shift_div = shift_div
         self.shift_place = shift_place
+        self.is_softshift = is_softshift
+        self.shift_init_mode = shift_init_mode
         self.base_model_name = base_model
         self.fc_lr5 = fc_lr5
         self.temporal_pool = temporal_pool
         self.non_local = non_local
+        self.print_spec = print_spec
+        self.deploy = deploy
 
         if not before_softmax and consensus_type != 'avg':
             raise ValueError("Only avg consensus can be used after Softmax")
@@ -79,6 +83,7 @@ class TSN(nn.Module):
             self.partialBN(True)
 
     def _prepare_tsn(self, num_class):
+        # import pdb; pdb.set_trace()
         feature_dim = getattr(self.base_model, self.base_model.last_layer_name).in_features
         if self.dropout == 0:
             setattr(self.base_model, self.base_model.last_layer_name, nn.Linear(feature_dim, num_class))
@@ -99,14 +104,26 @@ class TSN(nn.Module):
 
     def _prepare_base_model(self, base_model):
         print('=> base model: {}'.format(base_model))
-
+        
         if 'resnet' in base_model:
+            # for 0.5 res18 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             self.base_model = getattr(torchvision.models, base_model)(True if self.pretrain == 'imagenet' else False)
+            # if '18' in base_model:
+            #     from .half_res18 import resnet18
+            #     self.base_model = resnet18(pretrained=False)
+            # else:
+            #     self.base_model = getattr(torchvision.models, base_model)(
+            #         True if self.pretrain == 'imagenet' else False)
+            # for 0.5 res18 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
             if self.is_shift:
                 print('Adding temporal shift...')
                 from ops.temporal_shift import make_temporal_shift
+                # from ops.spatial_transform import make_spatial_transform
+                # make_spatial_transform(self.base_model)
                 make_temporal_shift(self.base_model, self.num_segments,
-                                    n_div=self.shift_div, place=self.shift_place, temporal_pool=self.temporal_pool)
+                                    n_div=self.shift_div, place=self.shift_place, temporal_pool=self.temporal_pool, 
+                                    soft=self.is_softshift, init_mode=self.shift_init_mode)
 
             if self.non_local:
                 print('Adding non-local module...')
@@ -127,10 +144,39 @@ class TSN(nn.Module):
                 self.input_mean = [0.485, 0.456, 0.406] + [0] * 3 * self.new_length
                 self.input_std = self.input_std + [np.mean(self.input_std) * 2] * 3 * self.new_length
 
+        elif 'repvgg' in base_model:
+            from archs.repvgg import repvgg_A0, repvgg_B1g2
+            # imagenet pretrained, deploy MODE
+            if 'A0' in base_model: # compare with res18
+                self.base_model = repvgg_A0(True if self.pretrain == 'imagenet' else False, deploy=self.deploy)
+            elif 'B1g2' in base_model: # compare with res50
+                self.base_model = repvgg_B1g2(True if self.pretrain == 'imagenet' else False, deploy=self.deploy)
+
+            if self.is_shift:
+                print('Adding temporal shift...')
+                from ops.temporal_shift import make_temporal_shift
+                make_temporal_shift(self.base_model, self.num_segments,
+                                    n_div=self.shift_div, place=self.shift_place, temporal_pool=self.temporal_pool, deploy=self.deploy,
+                                    soft=self.is_softshift, init_mode=self.shift_init_mode)
+            
+            self.base_model.last_layer_name = 'linear'
+            self.input_size = 224
+            self.input_mean = [0.485, 0.456, 0.406]
+            self.input_std = [0.229, 0.224, 0.225]
+            
+            self.base_model.gap = nn.AdaptiveAvgPool2d(1)
+            
+            if self.modality == 'Flow':
+                self.input_mean = [0.5]
+                self.input_std = [np.mean(self.input_std)]
+            elif self.modality == 'RGBDiff':
+                self.input_mean = [0.485, 0.456, 0.406] + [0] * 3 * self.new_length
+                self.input_std = self.input_std + [np.mean(self.input_std) * 2] * 3 * self.new_length
+        
         elif base_model == 'mobilenetv2':
             from archs.mobilenet_v2 import mobilenet_v2, InvertedResidual
             self.base_model = mobilenet_v2(True if self.pretrain == 'imagenet' else False)
-
+            # import pdb; pdb.set_trace()
             self.base_model.last_layer_name = 'classifier'
             self.input_size = 224
             self.input_mean = [0.485, 0.456, 0.406]
@@ -143,7 +189,8 @@ class TSN(nn.Module):
                     if isinstance(m, InvertedResidual) and len(m.conv) == 8 and m.use_res_connect:
                         if self.print_spec:
                             print('Adding temporal shift... {}'.format(m.use_res_connect))
-                        m.conv[0] = TemporalShift(m.conv[0], n_segment=self.num_segments, n_div=self.shift_div)
+                        m.conv[0] = TemporalShift(m.conv[0], n_segment=self.num_segments, n_div=self.shift_div, 
+                                                  soft=self.is_softshift, init_mode=self.shift_init_mode)
             if self.modality == 'Flow':
                 self.input_mean = [0.5]
                 self.input_std = [np.mean(self.input_std)]
@@ -166,6 +213,8 @@ class TSN(nn.Module):
                 print('Adding temporal shift...')
                 self.base_model.build_temporal_ops(
                     self.num_segments, is_temporal_shift=self.shift_place, shift_div=self.shift_div)
+        
+
         else:
             raise ValueError('Unknown base model: {}'.format(base_model))
 
@@ -260,15 +309,16 @@ class TSN(nn.Module):
              'name': "lr10_bias"},
         ]
 
-    def forward(self, input, no_reshape=False):
+    def forward(self, input, no_reshape=False): # 8,24,224,224
         if not no_reshape:
             sample_len = (3 if self.modality == "RGB" else 2) * self.new_length
 
             if self.modality == 'RGBDiff':
                 sample_len = 3 * self.new_length
                 input = self._get_diff(input)
+            
+            base_out = self.base_model(input.reshape((-1, sample_len) + input.size()[-2:]))
 
-            base_out = self.base_model(input.view((-1, sample_len) + input.size()[-2:]))
         else:
             base_out = self.base_model(input)
 

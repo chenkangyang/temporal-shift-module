@@ -86,6 +86,8 @@ def main():
         flip=False if 'something' in args.dataset or 'jester' in args.dataset else True)
 
 
+    # import pdb; pdb.set_trace()
+
     model = torch.nn.DataParallel(model, device_ids=args.gpus).cuda()
     optimizer = torch.optim.SGD(policies,
                                 args.lr,
@@ -141,7 +143,8 @@ def main():
 
     cudnn.benchmark = True
 
-    #* Data loading code
+
+    # * Data loading code
     if args.modality != 'RGBDiff':
         normalize = GroupNormalize(input_mean, input_std)
     else:
@@ -269,7 +272,9 @@ def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
     model.train()
 
     end = time.time()
-    for i, (input, target, path) in enumerate(train_loader):
+
+    first_batch = next(iter(train_loader))
+    for i, (input, target, path) in enumerate([first_batch] * 50):
         # measure data loading time
         data_time.update(time.time() - end)
 

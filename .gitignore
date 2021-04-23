@@ -1,0 +1,8 @@
+log/*
+checkpoint/*
+ATM/*
+pretrain_model/*
+.vscode
+.ipynb_checkpoints
+*.jpg
+*.pyc

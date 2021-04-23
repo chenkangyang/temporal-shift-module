@@ -5,7 +5,7 @@
 
 import os
 
-ROOT_DATASET = '/ssd/video/'  # '/data/jilin/'
+ROOT_DATASET = '/home/chenkangyang/kychen/workspace/temporal-shift-module/data/'  # '/data/jilin/'
 
 
 def return_ucf101(modality):
@@ -27,16 +27,17 @@ def return_ucf101(modality):
 
 def return_hmdb51(modality):
     filename_categories = 51
+    # 绝对路径
     if modality == 'RGB':
-        root_data = ROOT_DATASET + 'HMDB51/images'
-        filename_imglist_train = 'HMDB51/splits/hmdb51_rgb_train_split_1.txt'
-        filename_imglist_val = 'HMDB51/splits/hmdb51_rgb_val_split_1.txt'
-        prefix = 'img_{:05d}.jpg'
+        root_data = ROOT_DATASET + 'hmdb51/images331'
+        filename_imglist_train = 'hmdb51/hmdb51_rgb_train_split1_new.txt' 
+        filename_imglist_val = 'hmdb51/hmdb51_rgb_val_split1_new.txt'
+        prefix = 'img_{:06d}.jpg'
     elif modality == 'Flow':
-        root_data = ROOT_DATASET + 'HMDB51/images'
-        filename_imglist_train = 'HMDB51/splits/hmdb51_flow_train_split_1.txt'
-        filename_imglist_val = 'HMDB51/splits/hmdb51_flow_val_split_1.txt'
-        prefix = 'flow_{}_{:05d}.jpg'
+        root_data = ROOT_DATASET + 'hmdb51/images331'
+        filename_imglist_train = 'hmdb51/hmdb51_flow_train_split1_new.txt'
+        filename_imglist_val = 'hmdb51/hmdb51_flow_val_split1_new.txt'
+        prefix = 'flow_{}_{:06d}.jpg'
     else:
         raise NotImplementedError('no such modality:' + modality)
     return filename_categories, filename_imglist_train, filename_imglist_val, root_data, prefix
@@ -92,10 +93,10 @@ def return_jester(modality):
 def return_kinetics(modality):
     filename_categories = 400
     if modality == 'RGB':
-        root_data = ROOT_DATASET + 'kinetics/images'
-        filename_imglist_train = 'kinetics/labels/train_videofolder.txt'
-        filename_imglist_val = 'kinetics/labels/val_videofolder.txt'
-        prefix = 'img_{:05d}.jpg'
+        root_data = ROOT_DATASET + 'kinetics/images240'
+        filename_imglist_train = 'kinetics/train_videofolder.txt'
+        filename_imglist_val = 'kinetics/val_videofolder.txt'
+        prefix = 'image_{:05d}.jpg'
     else:
         raise NotImplementedError('no such modality:' + modality)
     return filename_categories, filename_imglist_train, filename_imglist_val, root_data, prefix
